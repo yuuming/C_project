@@ -1,15 +1,15 @@
 1studentID:"7813007"
-2name:"Sayaka Ono"
+2name:”Yumi Nakamura“
 3gender:"female"
-4grade:"29"
-5address:"East 29th Avenue, Vancouver"
+4grade:”30”
+5address:”Nanaimo East, Vancouver“
 6admission_year:"2017"
 7courses:"MADP101,MADP202,MADP301,MADP401"
 1studentID:"7813008"
-2name:"Yumi Nakamura"
+2name:”Sayaka Ono”
 3gender:"female"
-4grade:"30"
-5address:"Nanaimo, Vancouver"
+4grade:”29”
+5address:"East 29th Avenue, Vancouver"
 6admission_year:"2016"
 7courses:"MADP101,MADP202,MADP301"
 1studentID:"7813009"
@@ -20,9 +20,9 @@
 6admission_year:"2017"
 7courses:"MADP202"
 1studentID:"7813010"
-2name:"Takuya Iwagami"
-3gender:"male"
-4grade:"31"
+2name:”Jaewon Yoon”
+3gender:”female”
+4grade:”28”
 5address:"Downtown Vancouver, Vancouver"
 6admission_year:"2017"
 7courses:"MADP301,MADP401"

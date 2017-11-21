@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <ctype.h>
 
 
 #define CoursesFile "Courses.txt"
@@ -15,7 +18,7 @@
 #define StudentsFile "Students.txt"
 #define StudentsCoursesFile "StudentsCourses.txt"
 
-#define BASE_PATH "/Users/yuminakamura/Yumi_Nakamura_C_Project/Yumi_Nakamura_C_Project/sayaka/"
+#define BASE_PATH "/Users/yuminakamura/Yumi_Nakamura_C_Project/Yumi_Nakamura_C_Project/yuumi/"
 
 struct Student {
     
@@ -42,14 +45,27 @@ struct Courses{
 struct StudentsCourses{
     char *studentID;
     char *courseID;
-    char *mark;
+    int mark;
 };
 
-//Global Variables
+//　Global Variables
+
 struct Student* listOfStudents;
 struct Account* listOfAccounts;
 struct Courses* listOfCourses;
 struct StudentsCourses* listOfStudentCourses;
+int numberOfStudents;
+int numberOfAccounts;
+int numberOfCourses;
+int numberOfStudentsCourses;
+char* prefix;
+char* pronoun;
+
+struct Student student;
+struct Account account;
+
+double gpa;
+int ranking;
 
 char firstChar(char* line);
 int strLength(char* line);
@@ -59,123 +75,473 @@ char** splitString(char* a_str, const char a_delim, int* numberOfComponents);
 
 char** readFile(char* fileAddress, int* numberOfLines);
 int numberOfItemsPerRecordInFile(char* fileName);
-
+char* checkCourseName(char* courseID, int numberOfCourses);
 int convertToNumber(char *);
+int getCourseMark(char* studentID, char* courseID, int numberOfStudentsCourses);
 
-//Student
+//==========================================================
+//                       fanctions
+//==========================================================
+
+char* getPrefix(struct Student student){
+    if(strcmp(student.gender, "male") == 0){
+        prefix = "Mr.";
+    }else prefix = "Ms.";
+    return prefix;
+}
+
+char* getPronoun(struct Student student){
+    if(strcmp(student.gender, "male") == 0){
+        pronoun = "He";
+    }
+    else pronoun = "She";
+    return pronoun;
+}
+char *toLowercase(char* string){
+    int i = 0;
+    char c;
+    
+    char * lowercase=(char*)(malloc(sizeof(string)));
+    while (string[i]){
+        c = string[i];
+        c=tolower(c);
+        *(lowercase+i)=c;
+        i++;
+    }
+    return lowercase;
+}
+
+
+double getGPA(struct Student student){
+    int sum = 0;
+    int count = 0;
+    for(int i=0; i<numberOfStudentsCourses; i++){
+        struct StudentsCourses studentCourse = listOfStudentCourses[i];
+        if(strcmp(studentCourse.studentID, student.studentID) == 0){
+            sum += studentCourse.mark;
+            count++;
+        }
+    }
+    return sum/count;
+}
+
+int getRanking(double gpa){
+    int rank = 1;
+    
+    for(int i = 0; i< numberOfStudents; i++){
+        struct Student student = listOfStudents[i];
+        int student_gpa = getGPA(student);
+        
+        if(student_gpa > gpa){
+            rank++;
+        }
+    }
+    
+    return rank;
+    
+}
+
+//　Student
 struct Student createAStudent(char* studentID, char* name, char* gender, int grade, char* address, int admission_year, char* courses[], int numberOfCourses);
 
 struct Student* getListOfStudentFromFile(char* fileAddress, char* fileName, int* numberOfStudents);
 
-//Account
+//　Account
 struct Account createAnAccount(char* username, char*password);
 
 struct Account* getListOfAccountFromFile(char* fileAddress, char* fileName, int* numberOfAccounts);
 
-//Courses
+struct Account getLogindata(){
+    printf("Username: ");
+    char* username = (char*) malloc(sizeof(char));
+    scanf("%s[^\n]", username);
+    
+    printf("Password: ");
+    char* password = (char*) malloc(sizeof(char));
+    scanf("%s[^\n]", password);
+    printf("\n");
+    
+    struct Account account = createAnAccount(username, password);
+    return account;
+}
+
+bool checkAccount(struct Account account, int numberOfAccounts);
+struct Account userLogin(int numberOfAccounts, int numberOfStudents);
+struct Student getStudent(struct Account account, int numberOfStudents);
+
+void showMainMenu(void);
+
+//　Courses
 struct Courses createACourse(char*courseID, char*courseName);
 struct Courses* getListOfCouseFromFile(char* fileAddress, char* fileName, int* numberOfCourses);
 
-//StudentCourse
-struct StudentsCourses createAStudentCourse(char* studentID, char* courseID, char* mark);
+//　StudentCourse
+struct StudentsCourses createAStudentCourse(char* studentID, char* courseID, int mark);
 struct StudentsCourses* getListOfStudentCourses(char* fileAddress, char* fileName, char* numberOfStudentsCourses);
 
-int main(int argc, const char * argv[]) {
-    //***************************************************************
-    //***************************************************************
-    //Read the Students.txt file and create an array of Students
+//  <------print message functions----->
+
+void printLoginMessage(){
+    printf("************************************************************\n");
+    printf("Please enter your account to login:\n");
+    printf("************************************************************\n");
+}
+
+void printWelcomeMessage(){
+    printf("************************************************************\n");
+    printf("Welcome to Cornerstone International College of Canada.\n");
+    printf("************************************************************\n\n");
+}
+
+void printTryAgainMessage(){
+    printf("************************************************************\n");
+    printf("Your account does not exist. Please try again!\n");
+    printf("************************************************************\n\n");
+}
+
+void printOptions(){
+    printf("************************************************************\n");
+    printf("Select from the options:\n");
+    printf("************************************************************\n");
+    printf("—-[1] Print my enrolment certificate\n");
+    printf("—-[2] Print my courses\n");
+    printf("—-[3] Print my transcript\n");
+    printf("—-[4] Print my GPA\n");
+    printf("—-[5] Print my ranking among all students in the college\n");
+    printf("—-[6] List all available courses\n");
+    printf("—-[7] List all students\n");
+    printf("-—[8] Logout\n");
+    printf("-—[9] Exit\n");
+    printf("************************************************************\n");
+    printf("Enter the number corresponding to each item to proceed: ");
+}
+
+//Option [1]
+void printEnrolmentCertificate(){
+    printf("------------------------------------------------------------\n");
+    printf("Dear Sir/Madam,\n");
+    printf("\n");
+    printf("This is to certify that %s %s with student id %s is a student at grade %d at CICCC. %s was admitted to our college in %d and has taken %d course(s). Currently %s resides at %s.\n", getPrefix(student), student.name, student.studentID, student.grade, getPronoun(student), student.admission_year, student.numberOfCourses, toLowercase(pronoun), student.address);
+    printf("\n");
+    printf("If you have any question, please don’t hesitate to contact us.");
+    printf("Thanks,\n");
+    printf("\n");
+    printf("Williams,");
+    printf("\n");
+    printf("------------------------------------------------------------\n");
+}
+
+//Option [2]
+
+void printCourses(int numberOfCourse, int numberOfStudentsCourses, int takenCourse){
+    printf("------------------------------------------------------------\n");
+    printf("Hi %s %s,\n", getPrefix(student), student.name);
+    printf("You have taken the following courses:\n");
+    for(int i = 0; i<takenCourse; i++){
+        printf("%d) %s: %s: %d\n", i+1, student.courses[i],checkCourseName(student.courses[i], numberOfCourse), getCourseMark(student.studentID, student.courses[i], numberOfStudentsCourses));
+    }
+    printf("\n");
+    printf("------------------------------------------------------------\n");
+    printf("\n");
+};
+
+//Option [3]
+void printTranscript(){
+    printf("------------------------------------------------------------\n");
+    printf("Hi %s %s,\n", getPrefix(student), student.name);
+    printf("Here is your transcript:\n");
+    printf("\n");
+    int count = 1;
+    for(int i = 0; i<numberOfStudentsCourses; i++){
+        if(strcmp(student.studentID, listOfStudentCourses[i].studentID) == 0){
+            printf("%d %s: %s: %d\n", count, listOfStudentCourses[i].courseID, checkCourseName(listOfStudentCourses[i].courseID, numberOfStudentsCourses), listOfStudentCourses[i].mark);
+            count++;
+        }
+    }
+    printf("YOUR GPA IS: %.2f\n", getGPA(student));
+    printf("\n");
+    printf("------------------------------------------------------------\n");
+};
+
+////Option [4]
+void printMyGPA(){
+    printf("------------------------------------------------------------\n");
     
+    printf("Hi %s %s,\n", getPrefix(student), student.name);
+    printf("YOUR GPA IS: %.2f\n", getGPA(student));
+    printf("------------------------------------------------------------\n");
+    printf("\n");
+};
+
+//Option [5]
+void printMyRanking(){
+    printf("------------------------------------------------------------\n");
+    printf("Hi %s %s,\n", getPrefix(student), student.name);
+    printf("Your GPA is %.2f and therefore your rank is %d.\n", getGPA(student), getRanking(gpa));
+    printf("------------------------------------------------------------\n");
+    printf("\n");
+};
+
+//Option [6]
+void printlistAllAvaiableCourses(){
+    
+    printf("------------------------------------------------------------\n");
+    printf("The following courses are offered in CICCC:\n");
+    for(int i = 0; i<numberOfCourses; i++){
+        printf("%d) %s: %s\n", i+1, listOfCourses[i].courseID, listOfCourses[i].courseName);
+    }
+    printf("------------------------------------------------------------\n");
+    printf("\n");
+    
+};
+
+//Option [7]
+void printlistAllStudents(){
+    
+    printf("------------------------------------------------------------\n");
+    printf("There are %d students in CICCC as following:\n", numberOfStudents);
+    for(int i = 0; i<numberOfStudents; i++){
+        printf("%d) %s: %s\n", i+1, listOfStudents[i].name, listOfStudents[i].studentID);
+    }
+    printf("------------------------------------------------------------\n");
+    printf("\n");
+    
+};
+
+
+
+// get option
+int getOption(){
+    int option;
+    scanf("%d", &option);
+    printf("\n");
+    return option;
+}
+
+//★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+//                    MAIN stars from here!!!!
+//★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+int main(int argc, const char * argv[]) {
+    
+    //Read the Students.txt file and create an array of Students
     char* studentsFileName = StudentsFile;
     
-    //You need to change this address to your address.
     char* studentsfileAddress = BASE_PATH "Students.txt";
-    int numberOfStudents = 0;
+    numberOfStudents = 0;
     
     listOfStudents = getListOfStudentFromFile(studentsfileAddress, studentsFileName, &numberOfStudents);
     
-    for(int i=0; i<numberOfStudents; i++)
-    {
-        printf("%s\n", listOfStudents[i].name);
-        printf("%d\n", listOfStudents[i].numberOfCourses);
-        printf("%s\n", listOfStudents[i].address);
-        printf("%d\n", listOfStudents[i].grade);
-        printf("%d\n", listOfStudents[i].admission_year);
-        
-        for(int j=0; j<listOfStudents[i].numberOfCourses; j++)
-        {
-            printf("\n%s", listOfStudents[i].courses[j]);
-        }
-        
-        printf("\n============================\n");
-    }
-    //***************************************************************
-    //***************************************************************
-    
-
-    //***************************************************************
+    //    for(int i=0; i<numberOfStudents; i++)
+    //    {
+    //        printf("%s\n", listOfStudents[i].name);
+    //        printf("%d\n", listOfStudents[i].numberOfCourses);
+    //        printf("%s\n", listOfStudents[i].address);
+    //        printf("%d\n", listOfStudents[i].grade);
+    //        printf("%d\n", listOfStudents[i].admission_year);
+    //
+    //        for(int j=0; j<listOfStudents[i].numberOfCourses; j++)
+    //        {
+    //            printf("\n%s", listOfStudents[i].courses[j]);
+    //        }
+    //
+    //        printf("\n============================\n");
+    //    }
+    //
     //***************************************************************
     //Read the Accounts.txt file and create an array of Accounts
     //***************************************************************
-    //***************************************************************
     char* accountFileName = AccountsFile;
     char* accountsfileAddress = BASE_PATH "Accounts.txt";
-    int numberOfAccounts = 0;
+    numberOfAccounts = 0;
     
     listOfAccounts = getListOfAccountFromFile(accountsfileAddress, accountFileName, &numberOfAccounts);
     
-    for(int i=0; i<numberOfAccounts; i++)
-    {
-        printf("%s\n", listOfAccounts[i].username);
-        printf("%s\n", listOfAccounts[i].password);
-       
-        printf("\n============================\n");
-        
-    }
+    //    for(int i=0; i<numberOfAccounts; i++)
+    //    {
+    //        printf("%s\n", listOfAccounts[i].username);
+    //        printf("%s\n", listOfAccounts[i].password);
+    //
+    //        printf("\n============================\n");
+    //
+    //    }
     
-    
-    //***************************************************************
     //***************************************************************
     //Read the Courses.txt file and create an array of Courses
     //***************************************************************
-    //***************************************************************
     char* coursesFileName = CoursesFile;
     char* coursesfileAddress = BASE_PATH "Courses.txt";
-    int numberOfCourses = 0;
+    numberOfCourses = 0;
     
     listOfCourses = getListOfCouseFromFile(coursesfileAddress, coursesFileName, &numberOfCourses);
     
-    for(int i=0; i<numberOfCourses; i++)
-    {
-        printf("%s\n", listOfCourses[i].courseID);
-        printf("%s\n", listOfCourses[i].courseName);
-        
-        printf("\n============================\n");
-        
-    }
+    //    for(int i=0; i<numberOfCourses; i++)
+    //    {
+    //        printf("%s\n", listOfCourses[i].courseID);
+    //        printf("%s\n", listOfCourses[i].courseName);
+    //
+    //        printf("\n============================\n");
+    //
+    //    }
     
-    
-    //***************************************************************
     //***************************************************************
     //Read the StudentCourses.txt file and create an array of StudentCourses
     //***************************************************************
-    //***************************************************************
     char* studentCourseFileName = StudentsCoursesFile;
     char* studentCourseAddress =  BASE_PATH "StudentsCourses.txt";
-    int numberOfStudentsCourses = 0;
+    numberOfStudentsCourses = 0;
     
     listOfStudentCourses = getListOfStudentCourses(studentCourseAddress, studentCourseFileName, &numberOfStudentsCourses);
     
-    for(int i=0; i<numberOfStudentsCourses; i++)
-    {
-        printf("%s\n", listOfStudentCourses[i].studentID);
-        printf("%s\n", listOfStudentCourses[i].courseID);
-        printf("%s\n", listOfStudentCourses[i].mark);
-        
-        printf("\n============================\n");
-    }
+    //    for(int i=0; i<numberOfStudentsCourses; i++)
+    //    {
+    //        printf("%s\n", listOfStudentCourses[i].studentID);
+    //        printf("%s\n", listOfStudentCourses[i].courseID);
+    //        printf("%s\n", listOfStudentCourses[i].mark);
+    //
+    //        printf("\n============================\n");
+    //    }
+    
+    
+    //==========PROGEAM STARTS FROM HERE=============
+    
+    //    printLoginMessage();
+    
+    struct Account account = userLogin(numberOfAccounts, numberOfStudents);
+    student = getStudent(account, numberOfStudents);
+    gpa = getGPA(student);
+    ranking = getRanking(gpa);
+    
+    showMainMenu();
+    
+    //    account = getLogindata();
+    //    checkAccount(account, numberOfAccounts);
+    
     return 0;
 }
 
+struct Account userLogin(int numberOfAccounts, int numberOfStudents){
+    bool validAccount = false;
+    while(validAccount == false){
+        printLoginMessage();
+        account = getLogindata();
+        validAccount = checkAccount(account, numberOfAccounts);
+        if(validAccount){
+            printWelcomeMessage();
+        } else{
+            printTryAgainMessage();
+        }
+        sleep(2);
+    }
+    return account;
+}
+
+bool checkAccount(struct Account account, int numberOfAccounts){
+    for(int i = 0; i<numberOfAccounts; i++){
+        if(strcmp(listOfAccounts[i].username, account.username) == 0 &&
+           strcmp(listOfAccounts[i].password, account.password) == 0){
+            return true;
+        }
+    }
+    return false;
+}
+
+struct Student getStudent(struct Account account, int numberOfStudents){
+    for(int i = 0; i<numberOfStudents; i++){
+        if(strcmp(account.username, listOfStudents[i].studentID) == 0){
+            student = listOfStudents[i];
+        }
+    }
+    return student;
+}
+
+void showMainMenu() {
+    // print menu
+    printOptions();
+    // get input menu number from user
+    int option = getOption();
+    // switch
+    switch (option){
+        case 1:
+            printEnrolmentCertificate();
+            break;
+        case 2:
+            printCourses(numberOfCourses, numberOfStudentsCourses,  student.numberOfCourses);
+            break;
+        case 3:
+            printTranscript();
+            break;
+        case 4:
+            printMyGPA();
+            break;
+        case 5:
+            //            getRanking();
+            printMyRanking();
+            break;
+        case 6:
+            printlistAllAvaiableCourses();
+            break;
+        case 7:
+            printlistAllStudents();
+            break;
+        case 8:
+            account.password = 0;
+            student.studentID = 0;
+            
+            printf("+++LOG OUT+++/n");
+            
+            break;
+        case 9:
+            printf("bye bye！");
+            exit(0);
+            return;
+        default:
+            printf("please type 1 to 9.\n");
+            break;
+    }
+    showMainMenu();
+}
+
+// account
+/*
+ int strcmp( const char *str1 , const char *str2 );
+ str1とstr2が等しいならば0、
+ str1>str2ならば正の値、
+ str1<str2ならば負の値を返す。
+ */
+//bool checkAccount(struct Account account, int numberOfAccounts){
+//    for(int i = 0; i<numberOfAccounts; i++){
+//        if(strcmp(listOfAccounts[i].username, account.username) == 0){
+//            if(listOfAccounts[i].password == NULL){
+//                printf("Please try again!!!!!!!\n");
+//                printLoginMessage();
+//                struct Account account = getLogindata();
+//                bool validAccount = checkAccount(account, numberOfAccounts);
+//                if(validAccount){
+//                    sleep(2);
+//                    printWelcomeMessage();
+//                }
+//                else{
+//                    printTryAgainMessage();
+//                }
+//            }
+//            else if(strcmp(listOfAccounts[i].password, account.password) == 0){
+//                return true;
+//            }
+//        }
+//    }
+//    return false;
+//}
+
+//check if username == studentID
+struct Student registerdStudent(struct Account account, int numberOfStudents){
+    for(int i = 0; i<numberOfStudents; i++){
+        if(strcmp(account.username,listOfStudents[i].studentID) == 0 ){
+            student = listOfStudents[i];
+        }
+    }
+    return student;
+}
 
 int getTheStartIndex(char* filename, char firstChar)
 {
@@ -242,8 +608,6 @@ int getTheStartIndex(char* filename, char firstChar)
     {
         return 0;
     }
-    
-    
 }
 
 
@@ -478,6 +842,9 @@ int numberOfItemsPerRecordInFile(char* fileName)
     }
 }
 
+//*****************************
+//         Student
+//*****************************
 
 //This method creates a student using the input parameter. You might need to use this sample to create other entity types like course , ...
 struct Student createAStudent(char* studentID, char* name, char* gender, int grade, char* address, int admission_year, char* courses[], int numberOfCourses)
@@ -572,7 +939,7 @@ struct Student* getListOfStudentFromFile(char* fileAddress, char* fileName, int*
                     int numberOfComponents = 0;
                     char* coursesStr = substring(lines[indexOfLine], startIndex, lineLength-2);
                     courses = splitString(coursesStr, ',', &numberOfComponents);
-     
+                    
                     numberOfCourses = numberOfComponents;
                     
                 }
@@ -620,8 +987,8 @@ struct Account* getListOfAccountFromFile(char* fileAddress, char* fileName, int*
     {
         char* username= NULL;
         char* password = NULL;
-  
-    
+        
+        
         for(int i=0; i<numberOfLinesPerRecord; i++)
         {
             int indexOfLine = k*numberOfLinesPerRecord+i;
@@ -647,7 +1014,7 @@ struct Account* getListOfAccountFromFile(char* fileAddress, char* fileName, int*
             }//end of if
             
         }//end of second for
-
+        
         struct Account acccount = createAnAccount(username, password);
         listOfAccounts[numberOfStudentsReadFromFileSoFar] = acccount;
         
@@ -733,7 +1100,7 @@ struct Courses* getListOfCouseFromFile(char* fileAddress, char* fileName, int* n
 //*****************************
 
 
-struct StudentsCourses createAStudentCourse(char* studentID, char* courseID,char* mark)
+struct StudentsCourses createAStudentCourse(char* studentID, char* courseID,int mark)
 {
     struct StudentsCourses* studentCourses = (struct StudentsCourses*)malloc(sizeof(struct StudentsCourses));
     
@@ -761,7 +1128,7 @@ struct StudentsCourses* getListOfStudentCourses(char* fileAddress, char* fileNam
     {
         char* studentID = NULL;
         char* courseID = NULL;
-        char* mark = NULL;
+        int mark = 0;
         
         for(int i=0; i<numberOfLinesPerRecord; i++)
         {
@@ -787,7 +1154,8 @@ struct StudentsCourses* getListOfStudentCourses(char* fileAddress, char* fileNam
                 }
                 else if(firstCharacter=='3')
                 {
-                    mark = substring(lines[indexOfLine], startIndex, lineLength-2);
+                    char* strMark = substring(lines[indexOfLine], startIndex, lineLength-2);
+                    mark = convertToNumber(strMark);
                 }
             }//end of if
             
@@ -802,5 +1170,31 @@ struct StudentsCourses* getListOfStudentCourses(char* fileAddress, char* fileNam
     *numberOfStudentsCourses = numberOfStudentsReadFromFileSoFar;
     return listOfStudentCourses;
     
+}
+char* checkCourseName(char* courseID, int numberOfCourses){
+    char* courseName = NULL;
+    for(int i = 0; i<numberOfCourses; i++){
+        if(strcmp(courseID, listOfCourses[i].courseID) == 0){
+            courseName = listOfCourses[i].courseName;
+            return courseName;
+        }
+    }
+    return NULL;
+}
+
+int getCourseMark(char* studentID, char* courseID, int numberOfStudentsCourses){
+    int courseMark = 0;
+    for(int i = 0; i<numberOfStudentsCourses; i++){
+        if(strcmp(listOfStudentCourses[i].studentID, studentID) == 0){
+            while(courseMark == 0){
+                if(strcmp(courseID, listOfStudentCourses[i].courseID) == 0){
+                    courseMark = listOfStudentCourses[i].mark;
+                    return courseMark;
+                }
+                else i++;
+            }
+        }
+    }
+    return 0;
 }
 
